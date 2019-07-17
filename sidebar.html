@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+<html>
+  <head>
+  <title>Reannotator</title>
+  <script>
+  function formSubmit() {
+       updateStatus('Submitted!');
+       var response = {
+       accessions:document.getElementById('accessions').value.split('\n'),
+       parameters:{save_pref:document.getElementById('save-pref').checked}};
+       google.script.run.withFailureHandler(updateStatus)
+                        .withSuccessHandler(validSubmit)
+                        .validateResponse(response);
+  }
+  function validSubmit(response) {
+  updateStatus('Accessions accepted. Gathering Metadata.');
+  google.script.run.withFailureHandler(updateStatus)
+                   .withSuccessHandler(updateStatus)
+                   .getMetadata(response);
+  }
+  function updateStatus(s) {
+        var div = document.getElementById('output');
+        div.innerHTML = '<p><span class="current">'+s+'</span></p>';
+      }
+  function cLog(s) {
+     google.script.run.log(s);
+  }
+     </script>
+     <base target="_top">
+  </head>
+  
+  <body>
+      <div class="sidebar branding-below">
+      <div class="block form-group">
+         <label for="accessions">
+           <b>Accessions</b><br>
+           Please enter new-line delimited SRP, PRJNA, or GSE accessions for HTS studies.</label>
+         <textarea id="accessions" rows="15"></textarea>
+       </div>
+ <div class="block">
+ <input type="checkbox" id="save-pref">
+  <label for="checkbox">Save to separate sheets?</label>
+
+ </div>
+ <div class="block">
+    <button class="blue" onclick='formSubmit()'>Submit</button>
+  </div>
+  <div id="output"></div>
+</div>  
+   <div class="sidebar bottom">
+     <? var key = getKey_();
+     if(key==null || key==""){key="not set";}?>
+     <span class="secondary"><em>ncbi</em> API key: <?= key ?>.</span>
+   </div>
+  </body>
+</html>
+
