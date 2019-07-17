@@ -89,7 +89,7 @@ function getMetadata(response) {
       Utilities.sleep(e.api_rate);
       var BIOP_UID = e.esearch(GDS_SUMMARY.bioproject,'bioproject').esearchresult.idlist[0];
       Utilities.sleep(e.api_rate);
-      var SRA_ELINK = e.elink(BIOP_UID,'bioproject','sra')
+      var SRA_ELINK = e.elink(BIOP_UID,'bioproject','sra');
       if(SRA_ELINK.linksets[0].linksetdbs==null) {throw response.accessions[i]+' has no associated run information.';}
       Utilities.sleep(e.api_rate);
       SRA_UIDs[response.accessions[i]] = SRA_ELINK.linksets[0].linksetdbs[0].links;
