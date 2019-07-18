@@ -17,7 +17,7 @@
   updateStatus('Accessions accepted. Gathering Metadata.');
   google.script.run.withFailureHandler(updateStatus)
                    .withSuccessHandler(updateStatus)
-                   .getMetadata(response);
+                   .getMetadataRequest(response);
   }
   function updateStatus(s) {
         var div = document.getElementById('output');
@@ -52,3 +52,4 @@
    </div>
   </body>
 </html>
+
