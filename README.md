@@ -1,6 +1,9 @@
 # SRA-Run-Collector
 A simple Google App Script program with a sidebar interface for extracting SRA run information from project accessions such as SRP, GSE, or PRJNA studies.
 
+##  Feedback
+Please contact me at my public email address or post an issue with feedback.
+
 ## Installation
 Since this add-on is not yet published in the Google add-on store, you will need to copy the script into the script editor of one of your own spreadsheets.
 1. Create a spreadsheet.
