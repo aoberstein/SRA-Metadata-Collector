@@ -41,8 +41,14 @@ function validateResponse(response) {
   return response
 }
 
+function getMetadataRequest(response) {
+  // Pass through function.
+  return getMetadata_(response);
+}
+
 function getMetadata(response) {
-  //var response = {accessions:['PRJNA433861'],parameters:{save_pref:false}};
+  // This function runs through the metadata collection process, utilizing various other functions and the eutils object.
+//var response = {accessions:['PRJNA433861'],parameters:{save_pref:false}};
   var RETMAX = 400 // Global parameter. This limit will impact total I/O'
   // Creating Eutils instance
   var e = new Eutils_(getKey_(),RETMAX);
@@ -68,13 +74,13 @@ function getMetadata(response) {
         SRA_UIDs[response.accessions[i]] = SRP_UID.esearchresult.idlist;
       
     } else if(regex.exec(response.accessions[i])=='GSE'){
-      // GSE GSE GSE GSE GSE
-      var GDS_UID = e.esearch(response.accessions[i],'gds').esearchresult.idlist[0]; // extracts first entry from returned ID's, which is always the GEO study.
-      if(GDS_UID==null){throw response.accessions[i]+' was not found.';}
-      Utilities.sleep(e.api_rate);
-      var SRA_ELINK = e.elink(GDS_UID,'gds','sra');
-      if(SRA_ELINK.linksets[0].linksetdbs==null) {throw response.accessions[i]+' has no associated run information.';}
-      SRA_UIDs[response.accessions[i]] = SRA_ELINK.linksets[0].linksetdbs[0].links;
+        // GSE GSE GSE GSE GSE
+        var GDS_UID = e.esearch(response.accessions[i],'gds').esearchresult.idlist[0]; // extracts first entry from returned ID's, which is always the GEO study.
+        if(GDS_UID==null){throw response.accessions[i]+' was not found.';}
+        Utilities.sleep(e.api_rate);
+        var SRA_ELINK = e.elink(GDS_UID,'gds','sra');
+        if(SRA_ELINK.linksets[0].linksetdbs==null) {throw response.accessions[i]+' has no associated run information.';}
+        SRA_UIDs[response.accessions[i]] = SRA_ELINK.linksets[0].linksetdbs[0].links;
     }
   }
   // This avoids repetitive function calls in the above loop
@@ -88,12 +94,13 @@ function getMetadata(response) {
   return 'Metadata gathered.';
 }
 
-function processXML(SRA_METADATA) {
+function processXML(sraXmlD) {
       // Receives an XML object obtained from SRA.
       // Returns a LoL object corresponding to a table of metadata.
-  for(var key in SRA_METADATA){
-      var entries = SRA_METADATA[key].getRootElement().getChildren();
-      var metadata=[]; // LoL where each primary list corresponds with a run to be output.
+  var metadata = {};
+  for(var key in sraXmlD){
+      var entries = sraXmlD[key].getRootElement().getChildren();
+      var currentMetadata=[]; // LoL where each primary list corresponds with a run to be output.
       for(var j = 0; j < entries.length; j++) {
         // Works by extracting data to a common variable, currentElement, which is then appended to the currentData, which is appended to the LoL table.
         var currentData = [key];
@@ -130,13 +137,12 @@ function processXML(SRA_METADATA) {
            .getChild('RUN_SET')
            .getChildren()
            .map(function(x) {return [x.getChild('IDENTIFIERS').getChildText('PRIMARY_ID')].concat(currentData).concat([x.getAttribute('total_bases').getValue()])});
-        metadata = metadata.concat(currentData);
+        currentMetadata = currentMetadata.concat(currentData);
         // Adds parsed metadata to the dictionary, overwriting the XML.
       }
-        SRA_METADATA[key] = metadata;
+        metadata[key] = currentMetadata;
   }
-  return SRA_METADATA;
-      
+  return metadata;
 }
 
 function outputTable(metadata,header,save_pref_param) {
