@@ -25,14 +25,13 @@ function openSidebar_() {
 function validateResponse(response) {
   //var response = {accessions:['GSE99454'],parameters:{save_pref:false}};
   if(response.accessions[0]=="") {throw 'Please enter SRP, PRJNA, or GSE accessions for HTS studies.';}
-  if(getKey_()==null || getKey_()==""){throw 'Please enter a ncbi API key through the Reannotator toolbar.';}
   var blankEntries = [];
-  var vRegex = new RegExp("^GSE|^SRP|^PRJNA");
+  var regex = new RegExp("^GSE|^SRP|^PRJNA");
   for (var i = 0; i < response.accessions.length; i++) {
     // Check if PRJNA, SRP, or GSE. Also validate whether all are correctly formatted. Each has its own process.
      if (response.accessions[i]=='') {
       blankEntries.push(i);
-      } else if(vRegex.exec(response.accessions[i])==null){
+      } else if(regex.exec(response.accessions[i])==null){
            throw response.accessions[i]+' is not a valid accession.';
       }
   }
@@ -43,66 +42,48 @@ function validateResponse(response) {
 }
 
 function getMetadata(response) {
-  //var response = {accessions:['GSE99454'],parameters:{save_pref:false}};
+  // var response = {accessions:['GSE48812'],parameters:{save_pref:false}};
   var RETMAX = 400 // Global parameter. This limit will impact total I/O'
   // Creating Eutils instance
   var e = new Eutils_(getKey_(),RETMAX);
+  // Creating dictionary for UIDs (values) for samples associated with a given accessions (keys)
   var SRA_UIDs = {};
+  // Creating a regex pattern for determing what type of accession has been entered.
+  var regex = new RegExp("^GSE|^SRP|^PRJNA");
   for (var i = 0; i < response.accessions.length; i++) {
     // Check if PRJNA, SRP, or GSE. Also validate whether all are correctly formatted. Each has its own process.
-    var PRJNA_regex = new RegExp("^PRJNA");
-    var SRP_regex = new RegExp("^SRP");
-    var GSE_regex = new RegExp("^GSE");    
-     if(PRJNA_regex.exec(response.accessions[i])=='PRJNA'){
+    Utilities.sleep(e.api_rate); 
+    if(regex.exec(response.accessions[i])=='PRJNA'){
        // PRJNA PRJNA PRJNA PRJNA
-     Utilities.sleep(e.api_rate);
-     var BIOP_UID =  e.esearch(response.accessions[i],'bioproject').esearchresult.idlist[0];
-      // First check for PRJNA route is whether esearch yielded no results.
-     if(BIOP_UID==null){throw response.accessions[i]+' was not found.';}
-     Utilities.sleep(e.api_rate);
-     var SRA_ELINK = e.elink(BIOP_UID,'bioproject','sra');
-     Utilities.sleep(e.api_rate);
-       // Second check for PRJNA route is whether elink yielded no results.
-     if(SRA_ELINK.linksets[0].linksetdbs==null) {throw response.accessions[i]+' has no associated run information.';}
-     SRA_UIDs[response.accessions[i]] = SRA_ELINK.linksets[0].linksetdbs[0].links;
+       var BIOP_UID =  e.esearch(response.accessions[i],'sra').esearchresult.idlist;
+       // First check for PRJNA route is whether esearch yielded no results.
+       if(BIOP_UID==null){throw response.accessions[i]+' was not found.';}
+       SRA_UIDs[response.accessions[i]] = BIOP_UID;
      
-     } else if(SRP_regex.exec(response.accessions[i])=='SRP'){
-      // SRP SRP SRP SRP SRP
-      Utilities.sleep(e.api_rate);
-      var SRP_UID = e.esearch(response.accessions[i],'sra');
-      Utilities.sleep(e.api_rate);
-       // First check for SRP is whether esearch yielded hits, which indicates associated runs. WIP may fail if more than 1:1 mapping for SRP
-      if(SRP_UID.esearchresult.idlist.length<1) {throw response.accessions[i]+' has no associated run information.';}
-       Utilities.sleep(e.api_rate);
-      SRA_UIDs[response.accessions[i]] = SRP_UID.esearchresult.idlist;
+     } else if(regex.exec(response.accessions[i])=='SRP'){
+        // SRP SRP SRP SRP SRP
+        var SRP_UID = e.esearch(response.accessions[i],'sra');
+        // First check for SRP is whether esearch yielded hits, which indicates associated runs. WIP may fail if more than 1:1 mapping for SRP
+        if(SRP_UID.esearchresult.idlist.length<1) {throw response.accessions[i]+' has no associated run information.';}
+        SRA_UIDs[response.accessions[i]] = SRP_UID.esearchresult.idlist;
       
-    } else if(GSE_regex.exec(response.accessions[i])=='GSE'){
+    } else if(regex.exec(response.accessions[i])=='GSE'){
       // GSE GSE GSE GSE GSE
-      Utilities.sleep(e.api_rate);
       var GDS_UID = e.esearch(response.accessions[i],'gds').esearchresult.idlist[0]; // extracts first entry from returned ID's, which is always the GEO study.
-      // First check is simply that the esearch was not null
       if(GDS_UID==null){throw response.accessions[i]+' was not found.';}
       Utilities.sleep(e.api_rate);
-      var GDS_SUMMARY = e.esummary(GDS_UID,'gds').result[GDS_UID];
-      // Second check is that selected UID exactly matches the submitted accession
-      if(response.accessions[i]!=GDS_SUMMARY.accession) {throw response.accessions[i]+' did not create a 1:1 match.';}
-      Utilities.sleep(e.api_rate);
-      var BIOP_UID = e.esearch(GDS_SUMMARY.bioproject,'bioproject').esearchresult.idlist[0];
-      Utilities.sleep(e.api_rate);
-      var SRA_ELINK = e.elink(BIOP_UID,'bioproject','sra');
+      var SRA_ELINK = e.elink(GDS_UID,'gds','sra');
       if(SRA_ELINK.linksets[0].linksetdbs==null) {throw response.accessions[i]+' has no associated run information.';}
-      Utilities.sleep(e.api_rate);
       SRA_UIDs[response.accessions[i]] = SRA_ELINK.linksets[0].linksetdbs[0].links;
-      }
+    }
   }
   // This avoids repetitive function calls in the above loop
   for (var key in SRA_UIDs) {
     Utilities.sleep(e.api_rate);
     SRA_UIDs[key] = XmlService.parse(e.efetch(SRA_UIDs[key].join(),'sra').getContentText());
   }
-  Utilities.sleep(e.api_rate);
+  var header = ["SRR","Submitted Accession","Sample Accession","Title","Sample Attributes","Platform","Accessions","Library Strategy","Library Layout","Library Source","Library Selection","Library Construction Protocol","Bases"];
   metadata = processXML(SRA_UIDs);
-  var header = ["SRR","Submitted Accession","Sample Accession","Title","Sample Attributes","Platform","Accession","Library Strategy","Library Layout","Library Source","Library Selection","Library Construction Protocol","Bases"];
   outputTable(metadata, header, response.parameters.save_pref);
   return 'Metadata gathered.';
 }
@@ -111,17 +92,15 @@ function processXML(SRA_METADATA) {
       // Receives an XML object obtained from SRA.
       // Returns a LoL object corresponding to a table of metadata.
   for(var key in SRA_METADATA){
-      var root = SRA_METADATA[key].getRootElement();
-      var entries = new Array();
-      entries = root.getChildren();
-      var metadata=[]; // Where you would specify additional headers.
+      var entries = SRA_METADATA[key].getRootElement().getChildren();
+      var metadata=[]; // LoL where each primary list corresponds with a run to be output.
       for(var j = 0; j < entries.length; j++) {
         // Works by extracting data to a common variable, currentElement, which is then appended to the currentData, which is appended to the LoL table.
         var currentData = [key];
         var currentElement = entries[j].getChild('SAMPLE');
         currentData.push(currentElement.getChild('IDENTIFIERS').getChildText('PRIMARY_ID')); // Sample Accession
         
-        var currentElement = entries[j].getChild('EXPERIMENT')
+        var currentElement = entries[j].getChild('EXPERIMENT');
         currentData.push(currentElement.getChildText('TITLE')); // Sample title
         
         var currentElement = entries[j].getChild('SAMPLE'); // Fields from SAMPLE
@@ -131,8 +110,10 @@ function processXML(SRA_METADATA) {
                          .join(" || ")); // Creates a string of sample attributes.
         var currentElement = entries[j].getChild('EXPERIMENT') // Fields from EXPERIMENT
         currentData.push(currentElement.getChild('PLATFORM').getChildren()[0].getChildText('INSTRUMENT_MODEL')); // Get platform
+        var currentElement = entries[j].getChild('STUDY').getChild('IDENTIFIERS').getChildren();
+        var xx = currentElement.map(function(x) {return x.getValue();}).join();
+        var currentElement = entries[j].getChild('EXPERIMENT');
         currentData.push(currentElement.getChild('STUDY_REF').getAttributes().map(function(x){return x.getValue();}).join()); // Get accessions from EXPERIMENT node
-        
         var currentElement = currentElement.getChild('DESIGN').getChild('LIBRARY_DESCRIPTOR');
         currentData.push(currentElement.getChildText('LIBRARY_STRATEGY'));
         currentData.push(currentElement.getChild('LIBRARY_LAYOUT').getChildren()[0].getName());
@@ -159,7 +140,6 @@ function outputTable(metadata,header,save_pref_param) {
   if(save_pref_param){
     for(var key in metadata){
     var cSheet = sheet.getSheetByName(key);
-
     if (cSheet != null) {
       // Fails if this is the last sheet in the spreadsheet. Simply fail out if so.
       try {
@@ -169,8 +149,8 @@ function outputTable(metadata,header,save_pref_param) {
     cSheet = sheet.insertSheet();
     cSheet.setName(key);
     // Plus 1 since you need to add a header.
-    var range = cSheet.getRange(1,1,metadata[key].length+1,metadata[key][0].length);
     metadata[key].unshift(header);
+    var range = cSheet.getRange(1,1,metadata[key].length,metadata[key][0].length);
     range.setValues(metadata[key]);
     }
   } else {
@@ -183,7 +163,7 @@ function outputTable(metadata,header,save_pref_param) {
       } catch(e) {}
     } 
     cSheet = sheet.insertSheet();
-    cSheet.setName('Reannotator_Results');
+    cSheet.setName('Results');
   // Merging all metadata entries
   var mMetadata = [header];
   for (var key in metadata) {
@@ -231,7 +211,10 @@ function Eutils_(key,retmax) {
 // API-key get set
 function setKey_() {
   key=showAPIKEYPrompt();
-  PropertiesService.getUserProperties().setProperty('api-key',key);
+  if(key==null){
+    PropertiesService.getUserProperties().deleteProperty('api-key');
+  } else {
+    PropertiesService.getUserProperties().setProperty('api-key',key);}
 }
 function showAPIKEYPrompt() {
   var ui = SpreadsheetApp.getUi(); // Same variations.
@@ -240,17 +223,13 @@ function showAPIKEYPrompt() {
       'Please enter your ncbi API key.',
     'Key:',
       ui.ButtonSet.OK_CANCEL);
-
-  // Process the user's response.
-  // Should test that API key works
+  // Process response
   var button = result.getSelectedButton();
   var text = result.getResponseText();
-  if (button == ui.Button.CANCEL || button == ui.Button.CLOSE) {
-    // User clicked "Cancel".
-    ui.alert('API key not set.');
+  if(text==""){return null;}
+    return text;
   }
-  return text
-  }
-function getKey_() { 
-  return PropertiesService.getUserProperties().getProperty('api-key')
+function getKey_() {
+  return PropertiesService.getUserProperties().getProperty('api-key');
 }
+
