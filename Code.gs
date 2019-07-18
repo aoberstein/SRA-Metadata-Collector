@@ -4,8 +4,8 @@
 function onOpen() {
   var spreadsheet = SpreadsheetApp.getActive();
   var menuItems = [
-    {name: 'Enter API-key', functionName: 'setKey_'},
-    {name: 'Begin Run Collection', functionName: 'openSidebar_'}
+    {name: 'Enter API-key', functionName: 'setKey'},
+    {name: 'Begin Run Collection', functionName: 'openSidebar'}
   ];
   spreadsheet.addMenu('SRA Run Collector', menuItems);
 }
@@ -13,7 +13,7 @@ function onInstall() {
   onOpen();
 }
 
-function openSidebar_() {
+function openSidebar() {
   var html = HtmlService
       .createTemplateFromFile('sidebar')
       .evaluate()
@@ -43,12 +43,13 @@ function validateResponse(response) {
 
 function getMetadataRequest(response) {
   // Pass through function.
+  //var response = {accessions:['PRJNA433861'],parameters:{save_pref:false}};
+  //
   return getMetadata_(response);
 }
 
-function getMetadata(response) {
+function getMetadata_(response) {
   // This function runs through the metadata collection process, utilizing various other functions and the eutils object.
-//var response = {accessions:['PRJNA433861'],parameters:{save_pref:false}};
   var RETMAX = 400 // Global parameter. This limit will impact total I/O'
   // Creating Eutils instance
   var e = new Eutils_(getKey_(),RETMAX);
@@ -89,12 +90,12 @@ function getMetadata(response) {
     SRA_UIDs[key] = XmlService.parse(e.efetch(SRA_UIDs[key].join(),'sra').getContentText());
   }
   var header = ["SRR","Submitted Accession","Sample Accession","Title","Sample Attributes","Platform","Accessions","Library Strategy","Library Layout","Library Source","Library Selection","Library Construction Protocol","Bases"];
-  metadata = processXML(SRA_UIDs);
-  outputTable(metadata, header, response.parameters.save_pref);
+  metadata = processXML_(SRA_UIDs);
+  outputTable_(metadata, header, response.parameters.save_pref);
   return 'Metadata gathered.';
 }
 
-function processXML(sraXmlD) {
+function processXML_(sraXmlD) {
       // Receives an XML object obtained from SRA.
       // Returns a LoL object corresponding to a table of metadata.
   var metadata = {};
@@ -145,7 +146,7 @@ function processXML(sraXmlD) {
   return metadata;
 }
 
-function outputTable(metadata,header,save_pref_param) {
+function outputTable_(metadata,header,save_pref_param) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet()
   if(save_pref_param){
     for(var key in metadata){
@@ -184,49 +185,49 @@ function outputTable(metadata,header,save_pref_param) {
   }
 }
 
+
 function Eutils_(key,retmax) {
+  var handler = {
+  request:function request(url) {return UrlFetchApp.fetch(url);}
+  }
   this.key = key;
   this.keyBool = key!=null; // True if key exists.
-  this.url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"; // hard coded
+  this.url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/'; // Needs to be the Eutils url.
   this.retmax = retmax.toString();
   function key_to_rate(key) {if(key==null){return (1/2.75)*1000;} else {return (1/9.75)*1000;}}
   this.api_rate = key_to_rate(key);
-  this.request = function(url) {
-  // Ping the requested URL with GET
-    return UrlFetchApp.fetch(url);
-  };
   this.esearch = function(term,db) {
     var url = this.url+'esearch.fcgi?db='+db+'&term='+term+'&retmode=json&retmax='+this.retmax;
     if(this.keyBool) {url=url+'&api_key='+this.key;}
-    return JSON.parse(this.request(url));
+    return JSON.parse(handler.request(url));
   };
   this.elink = function(id,dbfrom,db) {
     var url = this.url+'elink.fcgi?db='+db+'&dbfrom='+dbfrom+'&id='+id+'&retmode=json&retmax='+this.retmax;
     if(this.keyBool) {url=url+'&api_key='+this.key;}
-    return JSON.parse(this.request(url));
+    return JSON.parse(handler.request(url));
   };
   this.esummary = function(id,db) {
     var url = this.url+'esummary.fcgi?db='+db+'&id='+id+'&retmode=json&retmax='+this.retmax;
     if(this.keyBool) {url=url+'&api_key='+this.key;}
-    return JSON.parse(this.request(url));
+    return JSON.parse(handler.request(url));
   };
   this.efetch = function(id,db) {
     // returns an xml
     var url = this.url+'efetch.fcgi?db='+db+'&id='+id+'&retmax='+this.retmax;
     if(this.keyBool) {url=url+'&api_key='+this.key;}
-    return this.request(url);
+    return handler.request(url);
   };
 }
 
 // API-key get set
-function setKey_() {
-  key=showAPIKEYPrompt();
+function setKey() {
+  key=showAPIKEYPrompt_();
   if(key==null){
     PropertiesService.getUserProperties().deleteProperty('api-key');
   } else {
     PropertiesService.getUserProperties().setProperty('api-key',key);}
 }
-function showAPIKEYPrompt() {
+function showAPIKEYPrompt_() {
   var ui = SpreadsheetApp.getUi(); // Same variations.
 
   var result = ui.prompt(
