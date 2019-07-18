@@ -5,7 +5,7 @@
   <title>Reannotator</title>
   <script>
   function formSubmit() {
-       updateStatus('Submitted!');
+       updateStatus('Submitted.');
        var response = {
        accessions:document.getElementById('accessions').value.split('\n'),
        parameters:{save_pref:document.getElementById('save-pref').checked}};
@@ -23,9 +23,6 @@
         var div = document.getElementById('output');
         div.innerHTML = '<p><span class="current">'+s+'</span></p>';
       }
-  function cLog(s) {
-     google.script.run.log(s);
-  }
      </script>
      <base target="_top">
   </head>
@@ -35,7 +32,7 @@
       <div class="block form-group">
          <label for="accessions">
            <b>Accessions</b><br>
-           Please enter new-line delimited SRP, PRJNA, or GSE accessions for HTS studies.</label>
+           Please enter new-line delimited SRP, PRJNA, or GSE accessions with associated sequencing runs in SRA.</label>
          <textarea id="accessions" rows="15"></textarea>
        </div>
  <div class="block">
