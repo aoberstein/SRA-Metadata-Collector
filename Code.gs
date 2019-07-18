@@ -42,7 +42,7 @@ function validateResponse(response) {
 }
 
 function getMetadata(response) {
-  // var response = {accessions:['GSE48812'],parameters:{save_pref:false}};
+  //var response = {accessions:['PRJNA433861'],parameters:{save_pref:false}};
   var RETMAX = 400 // Global parameter. This limit will impact total I/O'
   // Creating Eutils instance
   var e = new Eutils_(getKey_(),RETMAX);
@@ -111,16 +111,20 @@ function processXML(SRA_METADATA) {
         var currentElement = entries[j].getChild('EXPERIMENT') // Fields from EXPERIMENT
         currentData.push(currentElement.getChild('PLATFORM').getChildren()[0].getChildText('INSTRUMENT_MODEL')); // Get platform
         var currentElement = entries[j].getChild('STUDY').getChild('IDENTIFIERS').getChildren();
-        var xx = currentElement.map(function(x) {return x.getValue();}).join();
-        var currentElement = entries[j].getChild('EXPERIMENT');
-        currentData.push(currentElement.getChild('STUDY_REF').getAttributes().map(function(x){return x.getValue();}).join()); // Get accessions from EXPERIMENT node
-        var currentElement = currentElement.getChild('DESIGN').getChild('LIBRARY_DESCRIPTOR');
+        currentData.push(currentElement.map(function(x) {return x.getValue();}).join());
+        
+        var currentElement = entries[j].getChild('EXPERIMENT').getChild('DESIGN').getChild('LIBRARY_DESCRIPTOR');
         currentData.push(currentElement.getChildText('LIBRARY_STRATEGY'));
         currentData.push(currentElement.getChild('LIBRARY_LAYOUT').getChildren()[0].getName());
         currentData.push(currentElement.getChildText('LIBRARY_SOURCE'));
         currentData.push(currentElement.getChildText('LIBRARY_SELECTION'));
-        currentData.push(currentElement.getChildText('LIBRARY_CONSTRUCTION_PROTOCOL'));
-        
+        // Construction design can be placed in different places sometimes.
+        var design = currentElement.getChildText('LIBRARY_CONSTRUCTION_PROTOCOL');
+        if(design==null){
+          currentData.push(entries[j].getChild('EXPERIMENT').getChild('DESIGN').getChildText('DESIGN_DESCRIPTION'));
+        } else {
+          currentData.push(design);
+        }
         // Getting run information, which may have a multiple mapping to the rest of the metadata.
         var currentData = entries[j]
            .getChild('RUN_SET')
@@ -232,4 +236,3 @@ function showAPIKEYPrompt() {
 function getKey_() {
   return PropertiesService.getUserProperties().getProperty('api-key');
 }
-
