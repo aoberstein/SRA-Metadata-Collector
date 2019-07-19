@@ -2,13 +2,14 @@
 
 // Add-on logic
 function onOpen() {
-  var spreadsheet = SpreadsheetApp.getActive();
-  var menuItems = [
-    {name: 'Enter API-key', functionName: 'setKey'},
-    {name: 'Begin Run Collection', functionName: 'openSidebar'}
-  ];
-  spreadsheet.addMenu('SRA Run Collector', menuItems);
+  SpreadsheetApp
+    .getUi()
+    .createAddonMenu()
+    .addItem("Begin Reannotation", "openSidebar")
+    .addItem("Enter API key", "setKey")
+    .addToUi(); 
 }
+
 function onInstall() {
   onOpen();
 }
