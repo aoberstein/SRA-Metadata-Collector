@@ -9,10 +9,23 @@
        var response = {
        accessions:document.getElementById('accessions').value.split('\n'),
        parameters:{save_pref:document.getElementById('save-pref').checked}};
-       google.script.run.withFailureHandler(updateStatus)
-                        .withSuccessHandler(validSubmit)
-                        .validateResponse(response);
+       response = validateResponse(response);
+       if(response != null) {validSubmit(response);}
   }
+  function validateResponse(response) {
+    if(response.accessions[0]=="") {updateStatus('Please enter accessions or SRA search terms for sequencing studies.');
+      return;}
+    var blankEntries = [];
+    for (var i = 0; i < response.accessions.length; i++) {
+     if (response.accessions[i]=='') {
+       blankEntries.push(i);
+       }
+     }
+    for (var i=0; i < blankEntries.length; i++) {
+        response.accessions.splice(blankEntries[i]-i,1);
+        }
+    return response
+}
   function validSubmit(response) {
   updateStatus('Accessions accepted. Gathering Metadata.');
   google.script.run.withFailureHandler(updateStatus)
@@ -32,7 +45,7 @@
       <div class="block form-group">
          <label for="accessions">
            <b>Accessions</b><br>
-           Please enter new-line delimited SRP, PRJNA, or GSE accessions with associated sequencing runs in SRA.</label>
+           Please enter new-line delimited SRA, Bioproject, or GEO study accessions with associated sequencing runs in SRA. Alternatively, enter SRA search terms.</label>
          <textarea id="accessions" rows="15"></textarea>
        </div>
  <div class="block">
@@ -49,7 +62,9 @@
      <? var key = getKey_();
      if(key==null){key="not set";}?>
      <span class="secondary"><em>ncbi</em> API key: <?= key ?>.</span>
+     <? var retmax = getRetmax_();
+     if(retmax==null){retmax="not set";}?>
+     <span class="secondary"><em>ncbi</em> retmax: <?= retmax ?>.</span>
    </div>
   </body>
 </html>
-
