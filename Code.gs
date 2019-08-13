@@ -1,12 +1,11 @@
-// Eutils path: esearch(GSE) -> esummary(GSE UID) -> esearch(bioproject) -> elink(bioproject UID) -> efetch(sra UID's)
-
 // Add-on logic
 function onOpen() {
   SpreadsheetApp
     .getUi()
     .createAddonMenu()
-    .addItem("Begin Reannotation", "openSidebar")
+    .addItem("Begin Metadata Collection", "openSidebar")
     .addItem("Enter API key", "setKey")
+    .addItem("Enter retmax", "setRetmax")
     .addToUi(); 
 }
 
@@ -22,75 +21,58 @@ function openSidebar() {
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
-// Metadata generation logic.
-function validateResponse(response) {
-  //var response = {accessions:['GSE99454'],parameters:{save_pref:false}};
-  if(response.accessions[0]=="") {throw 'Please enter SRP, PRJNA, or GSE accessions for HTS studies.';}
-  var blankEntries = [];
-  var regex = new RegExp("^GSE|^SRP|^PRJNA");
-  for (var i = 0; i < response.accessions.length; i++) {
-    // Check if PRJNA, SRP, or GSE. Also validate whether all are correctly formatted. Each has its own process.
-     if (response.accessions[i]=='') {
-      blankEntries.push(i);
-      } else if(regex.exec(response.accessions[i])==null){
-           throw response.accessions[i]+' is not a valid accession.';
-      }
-  }
-  for (var i=0; i < blankEntries.length; i++) {
-        response.accessions.splice(blankEntries[i]-i,1);
-        }
-  return response
-}
-
+// Metadata generation logic
 function getMetadataRequest(response) {
   // Pass through function.
-  //var response = {accessions:['PRJNA433861'],parameters:{save_pref:false}};
+  //Various interesting test cases.
+  //var response = {accessions:['GSE48812'],parameters:{save_pref:false}};
+  //var response = {accessions:['PRJDB7477'],parameters:{save_pref:false}};
+  //var response = {accessions:['SRP158392'],parameters:{save_pref:false}};
+  //var response = {accessions:['PRJNA523380'],parameters:{save_pref:false}}; // Extremely large.
+  //var response = {accessions:['HT-29'],parameters:{save_pref:false}};
+  //var response = {accessions:['SRP009888'],parameters:{save_pref:false}}; // Does not have sample attributes.
+  //var response = {accessions:['GSE100839'],parameters:{save_pref:false}}; // Has technical replicates.
   //
   return getMetadata_(response);
 }
 
 function getMetadata_(response) {
   // This function runs through the metadata collection process, utilizing various other functions and the eutils object.
-  var RETMAX = 400 // Global parameter. This limit will impact total I/O'
+  var RETMAX = (getRetmax_() !="not set" && getRetmax_() != null && !isNaN(getRetmax_())) ? +getRetmax_():400; // Global parameter. This limit will impact total I/O'
   // Creating Eutils instance
   var e = new Eutils_(getKey_(),RETMAX);
   // Creating dictionary for UIDs (values) for samples associated with a given accessions (keys)
   var SRA_UIDs = {};
   // Creating a regex pattern for determing what type of accession has been entered.
-  var regex = new RegExp("^GSE|^SRP|^PRJNA");
+  var regex = new RegExp("^GSE|^SRP|^PRJNA|^PRJDB");
   for (var i = 0; i < response.accessions.length; i++) {
     // Check if PRJNA, SRP, or GSE. Also validate whether all are correctly formatted. Each has its own process.
     Utilities.sleep(e.api_rate); 
-    if(regex.exec(response.accessions[i])=='PRJNA'){
-       // PRJNA PRJNA PRJNA PRJNA
-       var BIOP_UID =  e.esearch(response.accessions[i],'sra').esearchresult.idlist;
-       // First check for PRJNA route is whether esearch yielded no results.
-       if(BIOP_UID==null){throw response.accessions[i]+' was not found.';}
-       SRA_UIDs[response.accessions[i]] = BIOP_UID;
-     
-     } else if(regex.exec(response.accessions[i])=='SRP'){
-        // SRP SRP SRP SRP SRP
-        var SRP_UID = e.esearch(response.accessions[i],'sra');
-        // First check for SRP is whether esearch yielded hits, which indicates associated runs. WIP may fail if more than 1:1 mapping for SRP
-        if(SRP_UID.esearchresult.idlist.length<1) {throw response.accessions[i]+' has no associated run information.';}
-        SRA_UIDs[response.accessions[i]] = SRP_UID.esearchresult.idlist;
+    if(regex.exec(response.accessions[i])=='PRJNA' || regex.exec(response.accessions[i])=='PRJDB'){
+       // Bioproject Bioproject Bioproject
+       var BIOP_UID =  e.esearch(response.accessions[i],'sra',use_history=true);
+       SRA_UIDs[response.accessions[i]] = [BIOP_UID.esearchresult.webenv,BIOP_UID.esearchresult.querykey];
       
-    } else if(regex.exec(response.accessions[i])=='GSE'){
-        // GSE GSE GSE GSE GSE
+     } else if(regex.exec(response.accessions[i])=='GSE'){
+       // GDS GDS GDS GDS GDS GDS
         var GDS_UID = e.esearch(response.accessions[i],'gds').esearchresult.idlist[0]; // extracts first entry from returned ID's, which is always the GEO study.
         if(GDS_UID==null){throw response.accessions[i]+' was not found.';}
         Utilities.sleep(e.api_rate);
-        var SRA_ELINK = e.elink(GDS_UID,'gds','sra');
-        if(SRA_ELINK.linksets[0].linksetdbs==null) {throw response.accessions[i]+' has no associated run information.';}
-        SRA_UIDs[response.accessions[i]] = SRA_ELINK.linksets[0].linksetdbs[0].links;
+        var SRA_ELINK = e.elink(GDS_UID,'gds','sra',cmd='neighbor_history');
+        SRA_UIDs[response.accessions[i]] = [SRA_ELINK.linksets[0].webenv,SRA_ELINK.linksets[0].linksetdbhistories[0].querykey];
+      
+    } else {
+        // SRA SRA SRA SRA SRA. Any entered term that does not match one of the above formats will be simply searched with SRA.
+        var SRP_UID = e.esearch(response.accessions[i],'sra',use_history=true);
+        SRA_UIDs[response.accessions[i]] = [SRP_UID.esearchresult.webenv,SRP_UID.esearchresult.querykey];
     }
   }
   // This avoids repetitive function calls in the above loop
   for (var key in SRA_UIDs) {
     Utilities.sleep(e.api_rate);
-    SRA_UIDs[key] = XmlService.parse(e.efetch(SRA_UIDs[key].join(),'sra').getContentText());
+    SRA_UIDs[key] = XmlService.parse(e.efetch(null,'sra',SRA_UIDs[key]).getContentText());
   }
-  var header = ["SRR","Submitted Accession","Sample Accession","Title","Sample Attributes","Platform","Accessions","Library Strategy","Library Layout","Library Source","Library Selection","Library Construction Protocol","Bases"];
+  var header = ["SRR","Submitted Term","Sample Accession","Title","Sample Attributes","Platform","Accessions","Library Strategy","Library Layout","Library Source","Library Selection","Library Construction Protocol","Bases"];
   metadata = processXML_(SRA_UIDs);
   outputTable_(metadata, header, response.parameters.save_pref);
   return 'Metadata gathered.';
@@ -113,10 +95,16 @@ function processXML_(sraXmlD) {
         currentData.push(currentElement.getChildText('TITLE')); // Sample title
         
         var currentElement = entries[j].getChild('SAMPLE'); // Fields from SAMPLE
-        currentData.push(currentElement.getChild('SAMPLE_ATTRIBUTES')
+        // Gathers sample attributes or gathers description if absent.
+        if(currentElement.getChild('SAMPLE_ATTRIBUTES')!=null){
+          currentData.push(currentElement.getChild('SAMPLE_ATTRIBUTES')
                          .getChildren()
                          .map(function(x) {return x.getChildText('TAG')+': '+x.getChildText('VALUE')})
                          .join(" || ")); // Creates a string of sample attributes.
+        } else if (currentElement.getChildText('DESCRIPTION')!=null){
+           currentData.push(currentElement.getChildText('DESCRIPTION'));
+        } else {currentData.push('')};
+        
         var currentElement = entries[j].getChild('EXPERIMENT') // Fields from EXPERIMENT
         currentData.push(currentElement.getChild('PLATFORM').getChildren()[0].getChildText('INSTRUMENT_MODEL')); // Get platform
         var currentElement = entries[j].getChild('STUDY').getChild('IDENTIFIERS').getChildren();
@@ -138,7 +126,8 @@ function processXML_(sraXmlD) {
         var currentData = entries[j]
            .getChild('RUN_SET')
            .getChildren()
-           .map(function(x) {return [x.getChild('IDENTIFIERS').getChildText('PRIMARY_ID')].concat(currentData).concat([x.getAttribute('total_bases').getValue()])});
+           .map(function(x) {return [x.getChild('IDENTIFIERS').getChildText('PRIMARY_ID')].concat(currentData)
+                                                                                          .concat([(+x.getAttribute('total_spots').getValue()/1000000).toFixed(1).toString()+'M'])});
         currentMetadata = currentMetadata.concat(currentData);
         // Adds parsed metadata to the dictionary, overwriting the XML.
       }
@@ -186,7 +175,6 @@ function outputTable_(metadata,header,save_pref_param) {
   }
 }
 
-
 function Eutils_(key,retmax) {
   var handler = {
   request:function request(url) {return UrlFetchApp.fetch(url);}
@@ -197,14 +185,19 @@ function Eutils_(key,retmax) {
   this.retmax = retmax.toString();
   function key_to_rate(key) {if(key==null){return (1/2.75)*1000;} else {return (1/9.75)*1000;}}
   this.api_rate = key_to_rate(key);
-  this.esearch = function(term,db) {
+  this.esearch = function(term,db,usehistory) {
+    if(usehistory==null){
+      usehistory=false
+    }
     var url = this.url+'esearch.fcgi?db='+db+'&term='+term+'&retmode=json&retmax='+this.retmax;
     if(this.keyBool) {url=url+'&api_key='+this.key;}
+    if(usehistory) {url=url+'&usehistory=y';}
     return JSON.parse(handler.request(url));
   };
-  this.elink = function(id,dbfrom,db) {
+  this.elink = function(id,dbfrom,db,cmd) {
     var url = this.url+'elink.fcgi?db='+db+'&dbfrom='+dbfrom+'&id='+id+'&retmode=json&retmax='+this.retmax;
     if(this.keyBool) {url=url+'&api_key='+this.key;}
+    if(cmd!=null) {url=url+'&cmd='+cmd;}
     return JSON.parse(handler.request(url));
   };
   this.esummary = function(id,db) {
@@ -212,12 +205,17 @@ function Eutils_(key,retmax) {
     if(this.keyBool) {url=url+'&api_key='+this.key;}
     return JSON.parse(handler.request(url));
   };
-  this.efetch = function(id,db) {
+  this.efetch = function(id,db,webenv) {
     // returns an xml
-    var url = this.url+'efetch.fcgi?db='+db+'&id='+id+'&retmax='+this.retmax;
-    if(this.keyBool) {url=url+'&api_key='+this.key;}
-    return handler.request(url);
-  };
+    if(webenv!=null){
+      var url = this.url+'efetch.fcgi?db='+db+'&query_key='+webenv[1]+'&WebEnv='+webenv[0]+'&retmax='+this.retmax;
+      if(this.keyBool) {url=url+'&api_key='+this.key;}
+      return handler.request(url)
+      } else {
+        var url = this.url+'efetch.fcgi?db='+db+'&id='+id+'&retmax='+this.retmax;
+        if(this.keyBool) {url=url+'&api_key='+this.key;}
+        return handler.request(url);
+      }};
 }
 
 // API-key get set
@@ -243,4 +241,30 @@ function showAPIKEYPrompt_() {
   }
 function getKey_() {
   return PropertiesService.getUserProperties().getProperty('api-key');
+}
+
+// retmax get set
+function setRetmax() {
+  result=showRETMAXPrompt_();
+  if(result==null){
+    PropertiesService.getUserProperties().deleteProperty('retmax');
+  } else {
+    PropertiesService.getUserProperties().setProperty('retmax',result);}
+}
+function showRETMAXPrompt_() {
+  var ui = SpreadsheetApp.getUi(); // Same variations.
+
+  var result = ui.prompt(
+      'Please enter the desired retmax for E-utils fetch function.',
+    'Number:',
+      ui.ButtonSet.OK_CANCEL);
+  // Process response
+  var button = result.getSelectedButton();
+  var text = result.getResponseText();
+  if(text==""){return null;}
+  if(+text>1000) {ui.alert('Retmax values greater than 1000 may result in an error for very large studies.')}
+    return text;
+  }
+function getRetmax_() {
+  return PropertiesService.getUserProperties().getProperty('retmax');
 }
