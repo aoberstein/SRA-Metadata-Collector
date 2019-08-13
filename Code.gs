@@ -17,8 +17,12 @@ function openSidebar() {
   var html = HtmlService
       .createTemplateFromFile('sidebar')
       .evaluate()
-      .setTitle('SRA Run Collector');
+      .setTitle('SRA Metadata Collector');
   SpreadsheetApp.getUi().showSidebar(html);
+}
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename)
+      .getContent();
 }
 
 // Metadata generation logic
@@ -38,7 +42,7 @@ function getMetadataRequest(response) {
 
 function getMetadata_(response) {
   // This function runs through the metadata collection process, utilizing various other functions and the eutils object.
-  var RETMAX = (getRetmax_() !="not set" && getRetmax_() != null && !isNaN(getRetmax_())) ? +getRetmax_():400; // Global parameter. This limit will impact total I/O'
+  var RETMAX = (getRetmax_() != null && !isNaN(getRetmax_())) ? +getRetmax_():400; // Global parameter. This limit will impact total I/O'
   // Creating Eutils instance
   var e = new Eutils_(getKey_(),RETMAX);
   // Creating dictionary for UIDs (values) for samples associated with a given accessions (keys)
@@ -261,9 +265,10 @@ function showRETMAXPrompt_() {
   // Process response
   var button = result.getSelectedButton();
   var text = result.getResponseText();
-  if(text==""){return null;}
-  if(+text>1000) {ui.alert('Retmax values greater than 1000 may result in an error for very large studies.')}
-    return text;
+  if(isNaN(text)) {ui.alert( 'Invalid retmax submitted. Defaulting to 400.');
+                 return "400";}
+  if(+text>1000) {ui.alert('Retmax values greater than 1000 may result in an error for very large studies.');}
+    return (+text).toFixed(0).toString();
   }
 function getRetmax_() {
   return PropertiesService.getUserProperties().getProperty('retmax');
