@@ -2,7 +2,8 @@
 <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
 <html>
   <head>
-  <title>Reannotator</title>
+  <title>SRA Metadata Collector</title>
+  <?!= include('sidebar.css'); ?>
   <script>
   function formSubmit() {
        updateStatus('Submitted.');
@@ -27,7 +28,7 @@
     return response
 }
   function validSubmit(response) {
-  updateStatus('Accessions accepted. Gathering Metadata.');
+  updateStatus('Submission accepted. Gathering Metadata.');
   google.script.run.withFailureHandler(updateStatus)
                    .withSuccessHandler(updateStatus)
                    .getMetadataRequest(response);
@@ -44,8 +45,9 @@
       <div class="sidebar branding-below">
       <div class="block form-group">
          <label for="accessions">
-           <b>Accessions</b><br>
-           Please enter new-line delimited SRA, Bioproject, or GEO study accessions with associated sequencing runs in SRA. Alternatively, enter SRA search terms.</label>
+           <b>Accessions/Terms</b><br>
+           Please enter new-line delimited SRA, Bioproject, or GEO study accessions with associated sequencing runs in SRA. Alternatively, enter SRA search terms.
+           </label>
          <textarea id="accessions" rows="15"></textarea>
        </div>
  <div class="block">
@@ -63,8 +65,9 @@
      if(key==null){key="not set";}?>
      <span class="secondary"><em>ncbi</em> API key: <?= key ?>.</span>
      <? var retmax = getRetmax_();
-     if(retmax==null){retmax="not set";}?>
+     if(retmax==null){retmax="400";}?>
      <span class="secondary"><em>ncbi</em> retmax: <?= retmax ?>.</span>
    </div>
+  <?!= include('sidebar.js'); ?>
   </body>
 </html>
