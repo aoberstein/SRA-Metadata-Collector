@@ -1,7 +1,7 @@
 # SRA-Metadata-Collector
 A simple Google App Script program with a sidebar interface for extracting SRA run information from project accessions such as SRP, GSE, or PRJNA studies.
 
-[Google Add-on Store Listing](https://chrome.google.com/webstore/detail/sra-metadata-collector/ccmloblpcmgnlimcoplpgjgclifgdijb?authuser=0)
+[Google Add-on Store Listing →](https://chrome.google.com/webstore/detail/sra-metadata-collector/ccmloblpcmgnlimcoplpgjgclifgdijb?authuser=0)
 
 ##  Feedback
 Please contact me at my public email address or post an issue with feedback.
