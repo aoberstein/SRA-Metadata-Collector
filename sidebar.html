@@ -2,13 +2,12 @@
 <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
 <html>
   <head>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
   <title>SRA Metadata Collector</title>
+  <?!= include('sidebar.js'); ?>
      <base target="_top">
   </head>
   
   <body>
-      <?!= include('sidebar.js'); ?>
       <div class="sidebar branding-below">
       <div class="block form-group">
          <label for="accessions">
@@ -28,13 +27,12 @@
   <div id="output"></div>
 </div>  
    <div class="sidebar bottom">
-     <? var key = getKey();
+     <? var key = getKey_();
      if(key==null){key="not set";}?>
      <span class="secondary"><em>ncbi</em> API key: <?= key ?>.</span>
-     <? var retmax = getRetmax();
+     <? var retmax = getRetmax_();
      if(retmax==null){retmax="400";}?>
      <span class="secondary"><em>ncbi</em> retmax: <?= retmax ?>.</span>
    </div>
-  <?!= include('sidebar.js'); ?>
   </body>
 </html>
