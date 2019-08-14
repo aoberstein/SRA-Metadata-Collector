@@ -154,7 +154,7 @@ function outputTable_(metadata,header,save_pref_param) {
 
 function Eutils_(key,retmax) {
   var handler = {
-  request:function request(url) {Logger.log(url);
+  request:function request(url) {
     return UrlFetchApp.fetch(url);}
   }
   this.key = key;
