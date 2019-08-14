@@ -2,46 +2,13 @@
 <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
 <html>
   <head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
   <title>SRA Metadata Collector</title>
-  <?!= include('sidebar.css'); ?>
-  <script>
-  function formSubmit() {
-       updateStatus('Submitted.');
-       var response = {
-       accessions:document.getElementById('accessions').value.split('\n'),
-       parameters:{save_pref:document.getElementById('save-pref').checked}};
-       response = validateResponse(response);
-       if(response != null) {validSubmit(response);}
-  }
-  function validateResponse(response) {
-    if(response.accessions[0]=="") {updateStatus('Please enter accessions or SRA search terms for sequencing studies.');
-      return;}
-    var blankEntries = [];
-    for (var i = 0; i < response.accessions.length; i++) {
-     if (response.accessions[i]=='') {
-       blankEntries.push(i);
-       }
-     }
-    for (var i=0; i < blankEntries.length; i++) {
-        response.accessions.splice(blankEntries[i]-i,1);
-        }
-    return response
-}
-  function validSubmit(response) {
-  updateStatus('Submission accepted. Gathering Metadata.');
-  google.script.run.withFailureHandler(updateStatus)
-                   .withSuccessHandler(updateStatus)
-                   .getMetadataRequest(response);
-  }
-  function updateStatus(s) {
-        var div = document.getElementById('output');
-        div.innerHTML = '<p><span class="current">'+s+'</span></p>';
-      }
-     </script>
      <base target="_top">
   </head>
   
   <body>
+      <?!= include('sidebar.js'); ?>
       <div class="sidebar branding-below">
       <div class="block form-group">
          <label for="accessions">
@@ -61,10 +28,10 @@
   <div id="output"></div>
 </div>  
    <div class="sidebar bottom">
-     <? var key = getKey_();
+     <? var key = getKey();
      if(key==null){key="not set";}?>
      <span class="secondary"><em>ncbi</em> API key: <?= key ?>.</span>
-     <? var retmax = getRetmax_();
+     <? var retmax = getRetmax();
      if(retmax==null){retmax="400";}?>
      <span class="secondary"><em>ncbi</em> retmax: <?= retmax ?>.</span>
    </div>
