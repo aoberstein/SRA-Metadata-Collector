@@ -1,0 +1,172 @@
+<script>
+
+// Pull key and retmax from user properties on server
+$(function() {
+  google.script.run.withSuccessHandler(setKey)
+      .getKey();
+  
+});
+$(function() {
+  google.script.run.withSuccessHandler(setRetmax)
+      .getRetmax();
+});
+// get sets of key and retmax
+ function setKey(input){
+   key=input;}
+ function getKey(){
+   return key;}
+ function setRetmax(input){
+   retmax=input;}
+ function getRetmax(){
+   return retmax;}
+function getMetadataRequest(response) {
+  // Pass through function.
+  //Various interesting test cases.
+  //var response = {accessions:['GSE48812'],parameters:{save_pref:false}};
+  //var response = {accessions:['PRJDB7477'],parameters:{save_pref:false}};
+  //var response = {accessions:['SRP158392'],parameters:{save_pref:false}};
+  //var response = {accessions:['PRJNA523380'],parameters:{save_pref:false}}; // Extremely large.
+  //var response = {accessions:['HT-29'],parameters:{save_pref:false}};
+  //var response = {accessions:['SRP009888'],parameters:{save_pref:false}}; // Does not have sample attributes.
+  //var response = {accessions:['GSE100839'],parameters:{save_pref:false}}; // Has technical replicates.
+  //
+  return getMetadata_(response);
+}
+
+function getMetadata_(response) {
+  // This function runs through the metadata collection process, utilizing various other functions and the eutils object.
+  var RETMAX_res = getRetmax();
+  var RETMAX = (RETMAX_res != null && !isNaN(RETMAX_res)) ? +RETMAX_res:400; // Global parameter. This limit will impact total I/O'
+  // Creating Eutils instance
+  console.log('Key below');
+  console.log(getKey());
+  console.log('retmax below');
+  console.log(getRetmax());
+  var e = new Eutils_(google.script.run.getKey(),RETMAX);
+  // Creating dictionary for UIDs (values) for samples associated with a given accessions (keys)
+  var SRA_UIDs = {};
+  // Creating a regex pattern for determing what type of accession has been entered.
+  var regex = new RegExp("^GSE|^SRP|^PRJNA|^PRJDB");
+  for (var i = 0; i < response.accessions.length; i++) {
+    // Check if PRJNA, SRP, or GSE. Also validate whether all are correctly formatted. Each has its own process.
+    //Utilities.sleep(e.api_rate); 
+    if(regex.exec(response.accessions[i])=='PRJNA' || regex.exec(response.accessions[i])=='PRJDB'){
+       // Bioproject Bioproject Bioproject
+       var BIOP_UID =  e.esearch(response.accessions[i],'sra',use_history=true);
+       SRA_UIDs[response.accessions[i]] = [BIOP_UID.esearchresult.webenv,BIOP_UID.esearchresult.querykey];
+      
+     } else if(regex.exec(response.accessions[i])=='GSE'){
+       // GDS GDS GDS GDS GDS GDS
+        var GDS_UID = e.esearch(response.accessions[i],'gds').esearchresult.idlist[0]; // extracts first entry from returned ID's, which is always the GEO study.
+        if(GDS_UID==null){updateStatus(response.accessions[i]+' was not found.');}
+        //Utilities.sleep(e.api_rate);
+        var SRA_ELINK = e.elink(GDS_UID,'gds','sra',cmd='neighbor_history');
+        SRA_UIDs[response.accessions[i]] = [SRA_ELINK.linksets[0].webenv,SRA_ELINK.linksets[0].linksetdbhistories[0].querykey];
+      
+    } else {
+        // SRA SRA SRA SRA SRA. Any entered term that does not match one of the above formats will be simply searched with SRA.
+        var SRP_UID = e.esearch(response.accessions[i],'sra',use_history=true);
+        SRA_UIDs[response.accessions[i]] = [SRP_UID.esearchresult.webenv,SRP_UID.esearchresult.querykey];
+    }
+  }
+  // This avoids repetitive function calls in the above loop
+  //parser = new DOMParser();
+   var xmls = new XMLSerializer();
+  for (var key in SRA_UIDs) {
+    //Utilities.sleep(e.api_rate);
+    SRA_UIDs[key] = xmls.serializeToString(e.efetch(null,'sra',SRA_UIDs[key]).documentElement);
+  }
+  console.log(SRA_UIDs);
+  var header = ["SRR","Submitted Term","Sample Accession","Title","Sample Attributes","Platform","Accessions","Library Strategy","Library Layout","Library Source","Library Selection","Library Construction Protocol","Bases"];
+  google.script.run.withSuccessHandler(updateStatus).processXMLFull(SRA_UIDs,header,response.parameters.save_pref);
+}
+
+function Eutils_(key,retmax) {
+  var handler = {
+      //request:function request(url) {return UrlFetchApp.fetch(url);}
+      request : function request(url) {
+      
+        console.log(url);
+        var response = '';
+        $.ajax({ type: "GET",   
+           url: url,   
+           async: false,
+           success : function(text){
+             response=text;
+           }});
+        return response
+      }
+      }
+  this.key = key;
+  this.keyBool = key!=null; // True if key exists.
+  this.url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/'; // Needs to be the Eutils url.
+  this.retmax = retmax.toString();
+  function key_to_rate(key) {if(key==null){return (1/2.75)*1000;} else {return (1/9.75)*1000;}}
+  this.api_rate = key_to_rate(key);
+  this.esearch = function(term,db,usehistory) {
+    if(usehistory==null){
+      usehistory=false
+    }
+    var url = this.url+'esearch.fcgi?db='+db+'&term='+term+'&retmode=json&retmax='+this.retmax;
+    if(this.keyBool) {url=url+'&api_key='+this.key;}
+    if(usehistory) {url=url+'&usehistory=y';}
+    return handler.request(url);
+  };
+  this.elink = function(id,dbfrom,db,cmd) {
+    var url = this.url+'elink.fcgi?db='+db+'&dbfrom='+dbfrom+'&id='+id+'&retmode=json&retmax='+this.retmax;
+    if(this.keyBool) {url=url+'&api_key='+this.key;}
+    if(cmd!=null) {url=url+'&cmd='+cmd;}
+    return handler.request(url);
+  };
+  this.esummary = function(id,db) {
+    var url = this.url+'esummary.fcgi?db='+db+'&id='+id+'&retmode=json&retmax='+this.retmax;
+    if(this.keyBool) {url=url+'&api_key='+this.key;}
+    return handler.request(url);
+  };
+  this.efetch = function(id,db,webenv) {
+    // returns an xml
+    if(webenv!=null){
+      var url = this.url+'efetch.fcgi?db='+db+'&query_key='+webenv[1]+'&WebEnv='+webenv[0]+'&retmax='+this.retmax;
+      if(this.keyBool) {url=url+'&api_key='+this.key;}
+      return handler.request(url)
+      } else {
+        var url = this.url+'efetch.fcgi?db='+db+'&id='+id+'&retmax='+this.retmax;
+        if(this.keyBool) {url=url+'&api_key='+this.key;}
+        return handler.request(url);
+      }};
+}
+function formSubmit() {
+       updateStatus('Submitted.');
+       var response = {
+       accessions:document.getElementById('accessions').value.split('\n'),
+       parameters:{save_pref:document.getElementById('save-pref').checked}};
+       response = validateResponse(response);
+       if(response != null) {validSubmit(response);}
+  }
+  function validateResponse(response) {
+    if(response.accessions[0]=="") {updateStatus('Please enter accessions or SRA search terms for sequencing studies.');
+      return;}
+    var blankEntries = [];
+    for (var i = 0; i < response.accessions.length; i++) {
+     if (response.accessions[i]=='') {
+       blankEntries.push(i);
+       }
+     }
+    for (var i=0; i < blankEntries.length; i++) {
+        response.accessions.splice(blankEntries[i]-i,1);
+        }
+    return response
+}
+  function validSubmit(response) {
+  updateStatus('Submission accepted. Gathering Metadata.');
+  getMetadataRequest(response);
+  }
+  
+  function updateStatus(s) {
+        var div = document.getElementById('output');
+        div.innerHTML = '<p><span class="current">'+s+'</span></p>';
+      }
+ 
+
+</script>
+
