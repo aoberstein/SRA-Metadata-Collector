@@ -9,13 +9,11 @@ Please contact me at my public email address or post an issue with feedback.
 ## Manual Installation
 Since this add-on is not yet verified in the Google add-on store, you may want to install this locally using the script editor of one of your own spreadsheets.
 1. Create a spreadsheet.
-2. Tools -> Script Editor.
-**In the script editor:**
-3. Copy Code.gs into Code.gs.
-4. File -> New -> Html file -> 'sidebar'.
-5. Copy Sidebar.html into sidebar.html.
+2. Tools → Script Editor.
+3. **In the script editor:** File → New → (file for each file in repository)
+4. Copy repository contents into their respective files in your script editor.
 
 ## Quick-start
-1.Optionally generate and enter an API key from ncbi.
-2.Begin run collection through SRA-Metadata-Collector menu prompt.
-3.Enter SRP, PRJNA, or GSE accessions corresponding to runs in SRA; or enter SRA search terms.
+1. Optionally generate and enter an API key from ncbi.
+2. Begin run collection through SRA-Metadata-Collector menu prompt.
+3. Enter SRP, PRJNA, or GSE accessions corresponding to runs in SRA; or enter SRA search terms.
